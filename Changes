@@ -1,4 +1,4 @@
-$Id: Changes,v 1.8 2004/07/22 11:30:24 roel Exp $
+$Id: Changes,v 1.9 2004/11/11 08:59:20 roel Exp $
 Revision history for Perl extension FrameMaker-MifTree.
 
 0.043 02 Mar 2004
@@ -18,3 +18,7 @@ Revision history for Perl extension FrameMaker-MifTree.
         conversion
 0.072 22 July 2004
       - bugfix release
+0.073 11 November 2004
+      - updated documentation
+      - changed some syntax issues; added global $use_unicode
+      - preparations for Util subclass

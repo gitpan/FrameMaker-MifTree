@@ -1,5 +1,6 @@
 package FrameMaker::MifTree;
-# $Id: MifTree.pm,v 1.15 2004/07/22 11:30:24 roel Exp $
+# $Id: MifTree.pm,v 1.19 2004/11/11 03:00:29 roel Exp $
+use 5.008_001;              # minimum version for Unicode support
 use strict;
 use warnings;
 use warnings::register;
@@ -17,17 +18,17 @@ FrameMaker::MifTree - A MIF Parser
 
 =head1 VERSION
 
-This document describes version 0.072, released 22 July 2004.
+This document describes version 0.073, released 2 November 2004.
 
 =head1 SYNOPSIS
 
   use FrameMaker::MifTree;
   my $mif = FrameMaker::MifTree->new;
   $mif->parse_miffile('filename.mif');
-  @strings = $mif->daughters_by_name("String", 0);
+  @strings = $mif->daughters_by_name('String', recurse => 1);
   print $strings[0]->string;
-  $strings[3]->string("Just another new string.");
-  $mif->dump_mif('newmif.mif');
+  $strings[3]->string('Just another new string.');
+  $mif->dump_miffile('newmif.mif');
 
 =head1 DESCRIPTION
 
@@ -79,15 +80,17 @@ IO::Stringy (only IO::Scalar is needed)
 
 BEGIN {
   use Exporter ();
-  our $VERSION     = 0.072;
+  our $VERSION     = 0.073;
   our @ISA         = qw(Tree::DAG_Node Exporter);
   our @EXPORT      = qw(&quote &unquote &encode_path &decode_path &convert);
-  our @EXPORT_OK   = ();
+  our @EXPORT_OK   = qw(%fmcharset %fmnamedchars);
   our %EXPORT_TAGS = ();
 }
 our @EXPORT_OK;
 
-our (%mifnodes, %mifleaves, %attribute_types, %fmcharset);
+our (%mifnodes, %mifleaves, %attribute_types, %fmcharset, %fmnamedchars);
+
+our $use_unicode;
 
 for my $do (qw(FrameMaker/MifTree/MifTreeTags FrameMaker/MifTree/FmCharset)) {
   do $do or croak $! || $@;
@@ -130,7 +133,7 @@ our %unit_to_factor = (
 
 =over 4
 
-=item add_daughters(LIST)
+=item C<add_daughters(LIST)>
 
 Adds a list of daughter object to a node. The difference with the DAG_Node
 method is that it checks for a valid MIF construct. Only the mother/daughter
@@ -147,8 +150,8 @@ sub add_daughters {
     # check for allowed daughters
     if (warnings::enabled || $^W) {
       for my $daughter (@daughters) {
-        warnings::warn "Node \"" . ($mother->name || '') .
-          "\" does not allow daughter \"" . ($daughter->name || '') . "\""
+        warnings::warn 'Node "' . ($mother->name || '') .
+          '" does not allow daughter "' . ($daughter->name || '') . '"'
           unless $mother->allows_daughter($daughter);
       }
     }
@@ -157,7 +160,7 @@ sub add_daughters {
   $mother->SUPER::add_daughters(@daughters);
 }
 
-=item attributes(VALUE)
+=item C<attributes(VALUE)>
 
 The attributes method of the FrameMaker::MifTree class does not require a
 reference as an attribute, as does the DAG_Node equivalent. As an extra, the
@@ -276,12 +279,12 @@ sub add_facet {
 
 =over 4
 
-=item C<$OBJ-E<gt>daughters_by_name(NAMESTRING, RECURSE)>
+=item C<$OBJ-E<gt>daughters_by_name(NAMESTRING, recurse => BOOLEAN)>
 
 Find all daughters that listen to the name NAMESTRING, either walking the tree
-(RECURSE is true), or only on the mother's daughters (RECURSE false or
-omitted (the latter throws a warning that it will not recurse -- I've spent too
-many time debugging code where I forgot to add the RECURSE parameter). Returns
+("recurse" is true), or only on the mother's daughters ("recurse" false or
+omitted; the latter throws a warning that it will not recurse -- I've spent too
+much time debugging code where I forgot to add the "recurse" parameter). Returns
 the first object in scalar context, or a list of all found objects in list
 context.
 
@@ -293,19 +296,20 @@ Note that "daughter_by_name" is an exact alias for this method.
 =cut
 
 sub daughters_by_name {
-  my ($obj, $name, $recurse) = @_[0 .. 2];
+  my ($obj, $name, $recurse, $rec_val) = @_[0 .. 3];
   my $wantsarray = wantarray;
+  $rec_val = $recurse, $recurse = 'recurse' if @_ == 3; # backward compatible
   if ((warnings::enabled || $^W) && ! defined $recurse) {
     warnings::warn 'daughters_by_name will NOT recurse';
   }
-  $recurse ||= 0;
+  $rec_val ||= 0;
   my @found = ();
   for my $daughter ($obj->daughters) {
     $daughter->walk_down({
       callback => sub {
         push @found, $_[0] if (defined $_[0]->name && $_[0]->name eq $name);
-        $recurse = 0 if ($recurse && @found && ! $wantsarray); # stop searching
-        return $recurse;
+        $rec_val = 0 if ($rec_val && @found && ! $wantsarray); # stop searching
+        return $rec_val;
       }
     });
   }
@@ -317,14 +321,15 @@ sub daughter_by_name { # alias
   $it->daughters_by_name(@them);
 }
 
-=item C<$OBJ-E<gt>daughters_by_name_and_attr(NAMESTRING, ATTRIBUTE, RECURSE)>
+=item C<$OBJ-E<gt>daughters_by_name_and_attr(NAMESTRING, ATTRIBUTE, recurse =>
+BOOLEAN)>
 
 Find all daughters that listen to the name NAMESTRING and have the raw
-attribute ATTRIBUTE, either walking the tree (RECURSE is true), or only on the
-mother's daughters (RECURSE false or omitted). Returns the first object in
-scalar context, or a list of all found objects in list context. ATTRIBUTE must
-be raw data, so use C<quote>, C<unquote>, C<encode_path> and C<decode_path> as
-appropriate.
+attribute ATTRIBUTE, either walking the tree ("recurse" is true), or only on
+the mother's daughters ("recurse" false or omitted). Returns the first object
+in scalar context, or a list of all found objects in list context. ATTRIBUTE
+must be raw data, so use C<quote>, C<unquote>, C<encode_path> and 
+C<decode_path> as appropriate.
 
 If you specify an empty string or undef as the NAMESTRING, this method will
 just look for ATTRIBUTE.
@@ -334,12 +339,13 @@ Note that "daughters_by_name_and_attr" is an exact alias for this method.
 =cut
 
 sub daughters_by_name_and_attr {
-  my ($obj, $name, $attr, $recurse) = @_[0 .. 3];
+  my ($obj, $name, $attr, $recurse, $rec_val) = @_[0 .. 4];
   my $wantsarray = wantarray;
+  $rec_val = $recurse, $recurse = 'recurse' if @_ == 4; # backward compatible
   if ((warnings::enabled || $^W) && ! defined $recurse) {
     warnings::warn 'daughters_by_name will NOT recurse';
   }
-  $recurse ||= 0;
+  $rec_val ||= 0;
   my @found = ();
   for my $daughter ($obj->daughters) {
     $daughter->walk_down({
@@ -350,8 +356,8 @@ sub daughters_by_name_and_attr {
             push @found, $_[0];
           }
         }
-        $recurse = 0 if ($recurse && @found && ! $wantsarray); # stop searching
-        return $recurse;
+        $rec_val = 0 if ($rec_val && @found && ! $wantsarray); # stop searching
+        return $rec_val;
       }
     });
   }
@@ -363,23 +369,85 @@ sub daughter_by_name_and_attr { # alias
   $it->daughters_by_name_and_attr(@them);
 }
 
-=item C<$OBJ-E<gt>find_string(QUOTED_REGEX, [USE_UNICODE])>
+=item C<$OBJ-E<gt>find_string(QUOTED_REGEX)>
 
 Returns a list of all strings that match QUOTED_REGEX under $OBJ. When called
-in scalar context, only the first match is returned.
+in scalar context, only the first match is returned. The string is in Unicode
+if the global modifier C<FrameMaker::MifTree-E<gt>use_unicode> is set (off by
+default.)
 
 =cut
 
 sub find_string {
-  my ($obj, $re, $use_unicode) = @_[0 .. 2];
+  my ($obj, $re, $use_unicode_deprecated) = @_[0 .. 2];
   my $wantsarray = wantarray;
   my @found = ();
-  for my $str_obj ($obj->daughters_by_name('String', 1)) {
-    my $string = $str_obj->string(undef, $use_unicode);
+  for my $str_obj ($obj->daughters_by_name('String', recurse => 1)) {
+    my $string = $str_obj->string(undef, $use_unicode_deprecated);
     push @found, $string if $string =~ /$re/;
     last if @found && ! $wantsarray;
   }
   return $wantsarray ? @found : $found[0];
+}
+
+#=item C<$OBJ-E<gt>charleaves_to_strings()>
+#
+#Changes all the leaves with the name "Char" below $OBJ to their equivalent
+#String leaves. This has no effect on the content of the MIF file; it just makes
+#the file less ambiguous. Returns undef.
+#
+#=cut
+
+sub charleaves_to_strings {
+  my $obj = $_[0];
+  local $use_unicode = 1;
+  for ($obj->daughters_by_name('Char', recurse => 1)) {
+    $_->name('String');
+    $_->string($fmnamedchars{$_->attribute});
+  }
+}
+
+sub fold_strings {
+  my $obj = $_[0];
+  local $use_unicode = 1;
+  for my $para ($obj->daughters_by_name('Para', recurse => 1)) {
+
+    $para->charleaves_to_strings;
+
+    my $first_paraline;
+    for my $daughter ($para->daughters) {
+      if ($daughter->name ne 'ParaLine') {
+        $first_paraline = undef;
+      } elsif ( ! defined $first_paraline ) {
+          $first_paraline = $daughter;
+      } else {
+        $first_paraline->add_daughters(
+          grep {$_->name ne 'TextRectID'} $daughter->daughters
+        );
+        $para->remove_daughter($daughter);
+        my @str_o = $first_paraline->daughters_by_name('String', recurse => 0);
+        if (@str_o) {
+          $first_paraline = undef if $str_o[-1]->string =~ /\x09$/;
+        }
+      }
+    }
+
+    for my $paraline ($para->daughters_by_name('ParaLine', recurse => 0)) {
+      my $first_str;
+      for my $daughter ($paraline->daughters) {
+        if ($daughter->name ne 'String') {
+          $first_str = undef;
+        } elsif ( ! defined $first_str ) {
+          $first_str = $daughter;
+        } else {
+          my $str = $daughter->string;
+          $first_str->string($first_str->string . $str) unless $str eq "\x06";
+          $paraline->remove_daughter($daughter);
+        }
+      }
+    }
+
+  }
 }
 
 =back
@@ -388,21 +456,22 @@ sub find_string {
 
 =over 4
 
-=item C<$OBJ-E<gt>string(STRING, [USE_UNICODE])>
+=item C<$OBJ-E<gt>string(STRING)>
 
 Reads or sets the object's attribute as a MIF string. The method just calls
 C<quote> and C<unquote> as appropriate.
 
-If the optional I<USE_UNICODE> argument is true, the string will be converted
-from Unicode to the FrameMaker character set first. (You must pass I<undef> as
-the first argument if you want to get just the Unicode string.)
+If the global modifier C<FrameMaker::MifTree-E<gt>use_unicode> is set to true,
+the string will be converted from Unicode to the FrameMaker character set
+first. (The method now throws a warning when you specify USE_UNICODE as the
+second argument.)
 
 =cut
 
 sub string { # read/write attribute-method
-  my $this = shift;
-  $this->attributes( quote($_[0], $_[1]) ) if defined $_[0];
-  return unquote($this->attributes, $_[1]);
+  my ($this, $new_val, $unicode_deprecated) = @_[0 .. 2];
+  $this->attributes(quote($new_val, $unicode_deprecated)) if defined $new_val;
+  return unquote($this->attributes, $unicode_deprecated);
 }
 
 =item C<$OBJ-E<gt>pathname(PATHSTRING)>
@@ -530,7 +599,10 @@ buffering considerations.
 sub facet_handle { # read-only attribute-method
   my $this = shift;
   croak 'Must be called on object' unless ref $this;
-  $this = $this->daughters_by_name('_facet', 0) unless $this->name eq '_facet';
+  $this = $this->daughters_by_name(
+    '_facet',
+    recurse => 0,
+  ) unless $this->name eq '_facet';
   croak 'Must be called on facet' unless $this->name eq '_facet';
   return fileno($this->attributes) ? $this->attributes : undef;
 }
@@ -556,6 +628,42 @@ sub default_unit { # read/write attribute-method
   return $default_unit;
 }
 
+=item C<FrameMaker::MifTree-E<gt>use_unicode(BOOLEAN)>
+
+This class global method returns or sets if strings are in Unicode or not.
+
+B<Note on Unicode mapping:> Most FrameMaker characters map easily to a Unicode
+equivalent. This is not true however, for the discretionary hyphen (hexadecimal
+04, E<lt>Char DiscHyphenE<gt>), the FrameMaker "soft hyphen" (hexadecimal 06
+E<lt>Char SoftHyphenE<gt>), and the "do not hyphenate" character (hexadecimal
+05, E<lt>Char NoHyphenE<gt>).
+
+The discretionary hyphen has a null default appearance in the middle of a line.
+At any intraword break that is used for a line break a hyphen glyph will be
+shown. Oddly enough this is defined in Unicode as a I<soft hyphen>, and so it
+maps to the soft hyphen (U+00AD) character.
+
+The I<soft hyphen> in FrameMaker is used for automatically inserted hyphens by
+the FrameMaker hyphenation algorithm. It has no meaning in the MIF, since
+FrameMaker will reflow a document upon import. But to preserve it in the
+Unicode string, it is mapped to the Unicode hyphen character (U+2010). You
+should remove it with C<tr/\x{2010}//d> if you don't want it.
+
+The NoHyphen is a real control character that just prevents a word from being
+hyphenated automatically by FrameMaker. To preserve this character when doing
+a to and fro conversion, I decided to map it to the Unicode zero-width joiner
+(U+200D). 
+
+Everything is controlled from the C<MifTree/FmCharset> file, so make changes
+there if you don't like my choices. Or better, override the %fmcharset hash.
+
+=cut
+
+sub use_unicode {
+  $use_unicode = $_[1] if exists $_[1];
+  return $use_unicode;
+}
+
 =back
 
 =head2 Tests on Tree Object
@@ -566,7 +674,7 @@ sub default_unit { # read/write attribute-method
 
 Tests if the object is a valid MIF node statement. That is, if its name occurs
 in the %mifnodes hash. Returns a list of valid daughters when a match is found.
-(In my terminology, nodes can have daughters, whereas leaves don't.)
+(In my terminology, "nodes" can have daughters, whereas leaves don't.)
 
 =cut
 
@@ -599,7 +707,7 @@ this could come in handy when you want to bind one object tree to another.
 sub allows_daughter {
   my ($mother, $daughter) = @_[0, 1];
   croak 'Must be called on object' unless ref $mother;
-  croak "Mother \"" . $mother->name . "\" must be called with daughter object"
+  croak 'Mother "' . $mother->name . '" must be called with daughter object'
     unless $daughter->isa('FrameMaker::MifTree');
   if (defined $daughter->name) {
     return grep { $_ eq $daughter->name } $mother->is_node;
@@ -632,7 +740,7 @@ defined:
   seconds_microseconds
   string
   tagstring
-  *) no attribute allowed; some leaves and all nodes have this
+  *) no attribute allowed; some leaves and all non-ending nodes have this
 
 The function returns TRUE if the attribute seems valid, and FALSE if there is
 an error. Use L<get_attribute_error> to see the error.
@@ -655,14 +763,14 @@ sub get_attribute_error {
   my $errVal;
   if ( defined $it->{attributes} ) {
     unless ( $it->is_leaf ) {
-      $errVal = "Node \"" . $it->name . "\" is not a leaf. " .
+      $errVal = 'Node "' . $it->name . '" is not a leaf. ' .
                 'Only leaves can have meaningful attributes';
     } else {
       my $attrType = $mifleaves{$it->name};
       # must access 'attributes' key directly; sorry
       unless ( $it->{attributes} =~ $attribute_types{$attrType} ) {
-        $errVal = "Attribute on leaf \"" . $it->name . "\" seems invalid. " .
-                  "Expected \"$attrType\" for \"" . $it->{attributes} . "\"";
+        $errVal = 'Attribute on leaf "' . $it->name . '" seems invalid. ' .
+                  qq(Expected "$attrType" for ") . $it->{attributes} . '"';
       }
     }
   }
@@ -690,7 +798,7 @@ sub validate {
   croak 'Method not yet implemented.'
   # 1. hard-coded checking on root object
   # 2. walk_down, checking allows_daughter and is_leaf for every node
-  # 3. if is_leaf check_attribute
+  # 3. if is_leaf: check_attribute
 }
 
 =back
@@ -703,7 +811,7 @@ sub validate {
 
 Dumps out the current tree as a list of MIF statements in valid MIF file
 syntax. You can write the resulting list to a file. The method tries to mimic
-the Adobe MIF parser behaviour as closely as possible. Please note that this
+the Adobe MIF parser file layout as closely as possible. Please note that this
 method can be memory intensive, since it creates a whole new copy of your MIF
 tree in memory. If you just want to write the MIF tree to a file, you may want
 to use L<dump_miffile> instead.
@@ -722,7 +830,7 @@ sub dump_mif {
         }
         if ( ! $this->is_node && ! defined $this->attributes ) {
           if (warnings::enabled || $^W) {
-            warnings::warn "Undefined attribute on leaf \"". $this->name ."\"";
+            warnings::warn 'Undefined attribute on leaf "'. $this->name . '"';
           }
           $this->attributes('');
         }
@@ -774,7 +882,7 @@ sub dump_miffile {
         }
         if ( ! $this->is_node && ! defined $this->attributes ) {
           if (warnings::enabled || $^W) {
-            warnings::warn "Undefined attribute on leaf \"". $this->name ."\"";
+            warnings::warn 'Undefined attribute on leaf "' . $this->name . '"';
           }
           $this->attributes('');
         }
@@ -849,7 +957,7 @@ Maybe I'll do something about it. Someday.
 
 sub parse_mif {
   my ($obj, $string) = @_[0, 1];
-  my $class = ref($obj) || croak "Must be called on object";
+  my $class = ref($obj) || croak 'Must be called on object';
   my $facet_handle = 0;
 
   my $fh = IO::Tokenized::Scalar->new();
@@ -858,7 +966,7 @@ sub parse_mif {
 
   my $cur_obj = $obj;
   while ( my ($tok, $val) = $fh->gettoken ) {
-    if ( $tok eq "FACET" ) {
+    if ( $tok eq 'FACET' ) {
       unless ($facet_handle) {
         $cur_obj->add_facet;
         $facet_handle = $cur_obj->facet_handle;
@@ -866,11 +974,11 @@ sub parse_mif {
       syswrite $facet_handle, "$val\n";
     } else {
       $facet_handle = 0;
-      if ( $tok eq "MIFTAG" ) {
+      if ( $tok eq 'MIFTAG' ) {
         $cur_obj = $cur_obj->add_node($val);
-      } elsif ( $tok eq "RANGLE" ) {
+      } elsif ( $tok eq 'RANGLE' ) {
         $cur_obj = $cur_obj->mother;
-      } elsif ( $tok eq "ATTRIBS" ) {
+      } elsif ( $tok eq 'ATTRIBS' ) {
         if (defined $cur_obj->attributes) {
           $cur_obj->attributes($cur_obj->attributes . $val)
         } else {
@@ -891,8 +999,8 @@ details.
 
 sub parse_miffile {
   my ($obj, $filename) = @_[0, 1];
-  croak "File \"$filename\" not found" unless -f $filename;
-  my $class = ref($obj) || croak "Must be called on object";
+  croak qq(File "$filename" not found) unless -f $filename;
+  my $class = ref($obj) || croak 'Must be called on object';
   my $facet_handle = 0;
 
   my $fh = IO::Tokenized::File->new();
@@ -902,7 +1010,7 @@ sub parse_miffile {
 
   my $cur_obj = $obj;
   while ( my ($tok, $val) = $fh->gettoken ) {
-    if ( $tok eq "FACET" ) {
+    if ( $tok eq 'FACET' ) {
       unless ($facet_handle) {
         $cur_obj->add_facet;
         $facet_handle = $cur_obj->facet_handle;
@@ -910,11 +1018,11 @@ sub parse_miffile {
       syswrite $facet_handle, "$val\n";
     } else {
       $facet_handle = 0;
-      if ( $tok eq "MIFTAG" ) {
+      if ( $tok eq 'MIFTAG' ) {
         $cur_obj = $cur_obj->add_node($val);
-      } elsif ( $tok eq "RANGLE" ) {
+      } elsif ( $tok eq 'RANGLE' ) {
         $cur_obj = $cur_obj->mother;
-      } elsif ( $tok eq "ATTRIBS" ) {
+      } elsif ( $tok eq 'ATTRIBS' ) {
         if (defined $cur_obj->attributes) {
           $cur_obj->attributes($cur_obj->attributes . $val)
         } else {
@@ -934,7 +1042,7 @@ All these functions are exported by default.
 
 =over 4
 
-=item quote(STRING, [USE_UNICODE])
+=item C<quote(STRING)>
 
 Quotes a string with MIF style quotes, and escapes forbidden characters.
 Backslashes, backticks, single quotes, greater-than and tabs are escaped,
@@ -953,19 +1061,25 @@ you want a literal \x00 string, precede it with an extra backslash.
   print quote("\\x09 ");    # prints `\\x09 '; this will show up literally
                             # as \x09 in FrameMaker
 
-If the optional I<USE_UNICODE> argument is true, the string will be converted
-from Unicode to the FrameMaker character set.
+(Note that after emitting a forced return, you I<must> start a new ParaLine.)
+
+If the global modifier $FrameMaker::MifTree::use_unicode is true, the string
+will be converted from Unicode to the FrameMaker character set.
+
 
 =cut
 
 sub quote {
-  my ($s, $use_unicode) = @_;
+  my ($s, $use_unicode_deprecated) = @_;
   return unless defined $s;
+  if ((warnings::enabled || $^W) && defined $use_unicode_deprecated) {
+    warnings::warn 'USE_UNICODE as 2nd argument is now deprecated';
+  }
 
-  if ($use_unicode) {
+  if ($use_unicode_deprecated || $use_unicode) {
     my $s_orig = $s;
     eval($unicode_to_fm);
-    warnings::warn "Error in \"quote\" while converting $s_orig\n$@" if $@;
+    warnings::warn qq(Error in "quote" while converting $s_orig\n$@) if $@;
   }
 
   $s =~ s/\\(?!x[a-f0-9]{2})/\\\\/g;   # single backslash to escaped backslash
@@ -975,43 +1089,50 @@ sub quote {
   $s =~ s/'/\\q/g;                     # single straight quote
   $s =~ s/>/\\>/g;                     # escape 'greater than'
   $s =~ s/\t/\\t/g;                    # tab character to backslash-'t'
-  $s =~ s/([\x80-\xff])/"\\x" . sprintf("%lx", ord $1) . " "/ge; # high chars
+
+  # control and high chars
+  $s =~ s/([\x00-\x1a\x80-\xff])/'\x' . sprintf('%lx', ord $1) . ' '/ge;
 
   return "`$s'";
 }
 
-=item unquote(STRING, [USE_UNICODE])
+=item C<unquote(STRING)>
 
 The opposite action. Surrounding quotes are removed and all escaped sequences
 are transliterated into their original character.
 
-If the optional I<USE_UNICODE> argument is true, the string will be converted
-from the FrameMaker character set to Unicode.
+If the global modifier $FrameMaker::MifTree::use_unicode is true, the string
+will be converted from the FrameMaker character set to Unicode.
+
+$FrameMaker::MifTree::use_unicode can be exported on request.
 
 =cut
 
 sub unquote {
-  my ($s, $use_unicode) = @_;
+  my ($s, $use_unicode_deprecated) = @_;
   return unless defined $s;
+  if ((warnings::enabled || $^W) && defined $use_unicode_deprecated) {
+    warnings::warn 'USE_UNICODE as 2nd argument is now deprecated';
+  }
 
   $s =~ s/^`// && $s =~ s/'$//;  # unquote
-  $s =~ s/\\x([a-f0-9]{2}) ?/chr hex $1/ge; # escaped non-ASCII chars
+  $s =~ s/\\x([a-f0-9]{1,2}) ?/chr hex $1/ge; # escaped non-ASCII chars
   $s =~ s/\\t/\t/g;              # tab character
   $s =~ s/\\>/>/g;               # greater than
   $s =~ s/\\q/'/g;               # single quote
   $s =~ s/\\Q/`/g;               # backtick
   $s =~ s/\\\\/\\/g;             # backslash
 
-  if ($use_unicode) {
+  if ($use_unicode_deprecated || $use_unicode) {
     my $s_orig = $s;
     eval($fm_to_unicode);
-    warnings::warn "Error in \"unquote\" while converting $s_orig\n$@" if $@;
+    warnings::warn qq(Error in "unquote" while converting $s_orig\n$@) if $@;
   }
 
   return $s;
 }
 
-=item encode_path(STRING)
+=item C<encode_path(STRING)>
 
 Encodes path names to the MIF path syntax. Usage:
 
@@ -1027,18 +1148,18 @@ sub encode_path {
   my $s = shift;
   return unless defined $s;
 
-  $s =~ s#^`## && $s =~ s#'$##;        # Remove quotes, just in case...
-  $s =~ s#\\#/#g;                      # All backslashes to forward slashes
+  $s =~ s{^`}{} && $s =~ s{'$}{};       # Remove quotes, just in case...
+  $s =~ s{\\}{/}g;                      # All backslashes to forward slashes
 
-  $s =~ s#^([a-z]:)#<v\\>$1#i;         # drive letter <v\>
-  $s =~ s#^//#<h\\>#;                  # unc path <h\>
-  $s =~ s#\.\./#<u\\>#g;               # .. 'up' in hierarchy to <u\>
-  $s =~ s#<u\\>([^<])#<u\\><c\\>$1#g;  # correct last <u\> to <u\><c\>
-  $s =~ s#/#<c\\>#g;                   # 'component' separators <c\>
-  $s =~ s#^([^<])#<c\\>$1#;            # start relative path with <c\>
-  $s =~ s#`#\\Q#g;                     # backtick
-  $s =~ s#'#\\q#g;                     # single straight quote
-  $s =~ s/([\x81-\xff])/"\\x" . sprintf("%lx", ord $1) . " "/ge; # high chars
+  $s =~ s{^([a-z]:)}{<v\\>$1}i;         # drive letter <v\>
+  $s =~ s{^//}{<h\\>};                  # unc path <h\>
+  $s =~ s{\.\./}{<u\\>}g;               # .. 'up' in hierarchy to <u\>
+  $s =~ s{<u\\>([^<])}{<u\\><c\\>$1}g;  # correct last <u\> to <u\><c\>
+  $s =~ s{/}{<c\\>}g;                   # 'component' separators <c\>
+  $s =~ s{^([^<])}{<c\\>$1};            # start relative path with <c\>
+  $s =~ s{`}{\\Q}g;                     # backtick
+  $s =~ s{'}{\\q}g;                     # single straight quote
+  $s =~ s{([\x81-\xff])}{'\x' . sprintf('%lx', ord $1) . ' '}ge; # high chars
 
   return "`$s'";
 }
@@ -1053,7 +1174,7 @@ Usage:
    # prints ../../Subdir/Filename
 
 Currently only Windows path names are supported (meaning that Unix and MacOS
-style path remain untested). MIF string quotes are removed. ROOTPATH, if
+style paths remain untested). MIF string quotes are removed. ROOTPATH, if
 specified, is the path that is prepended if STRING happens to be a relative
 path.
 
@@ -1062,20 +1183,20 @@ path.
 sub decode_path {
   my ($s, $root) = @_[0, 1];
   return unless defined $s;
-  ($root ||= '') =~ s#([^\\/])$#$1/#; # add slash if necessary
+  ($root ||= '') =~ s{([^\\/])$}{$1/};  # add slash if necessary
 
-  $s =~ s#^`## && $s =~ s#'$##;
+  $s =~ s{^`}{} && $s =~ s{'$}{};
 
-  $root = '' unless $s =~ m#^<[cu]\\>#; # only use $root when
+  $root = '' unless $s =~ m{^<[cu]\\>}; # only use $root when
                                         # relative path is found
-  $s =~ s#<v\\>##;
-  $s =~ s#<h\\>#//#;
-  $s =~ s#<u\\>(<c\\>)?#../#g;
-  $s =~ s#^<c\\>##g; # path starting with <c\> indicates relative path name
-  $s =~ s#<c\\>#/#g;
-  $s =~ s#\\q#'#g;               # single quote
-  $s =~ s#\\Q#`#g;               # backtick
-  $s =~ s/\\x([a-f0-9]{2}) ?/chr hex $1/ge; # escaped non-ASCII chars
+  $s =~ s{<v\\>}{};
+  $s =~ s{<h\\>}{//};
+  $s =~ s{<u\\>(<c\\>)?}{../}g;
+  $s =~ s{^<c\\>}{}g;    # path starting with <c\> indicates relative path name
+  $s =~ s{<c\\>}{/}g;
+  $s =~ s{\\q}{'}g;                     # single quote
+  $s =~ s{\\Q}{`}g;                     # backtick
+  $s =~ s{\\x([a-f0-9]{2}) ?}{chr hex $1}ge; # escaped non-ASCII chars
 
   return "$root$s";
 }
@@ -1110,11 +1231,11 @@ C<FrameMaker::MifTree-E<gt>default_unit> to be the empty string, even if you set
 SUPPRESSUNIT to be false. In that case the returned value is in points. So
 
   FrameMaker::MifTree->default_unit('');
-  print convert("12.0 didot");            # prints the value in points: 12.8131
+  print convert('12.0 didot');            # prints the value in points: 12.8131
   FrameMaker::MifTree->default_unit('mm');
-  print convert("12.0 didot", "pt", 1);   # also prints 12.8131
+  print convert('12.0 didot', 'pt', 1);   # also prints 12.8131
   FrameMaker::MifTree->default_unit('pt');
-  print convert("12.0 didot", '', 1);     # also prints 12.8131
+  print convert('12.0 didot', '', 1);     # also prints 12.8131
 
 All values are rounded to 4 decimals.
 
@@ -1127,7 +1248,7 @@ sub convert {
   $old_unit ||= $default_unit;
   $old_unit =~ s/\s//g;
   $new_unit =~ s/\s//g;
-  my $new_value = sprintf "%.4f",
+  my $new_value = sprintf '%.4f',
                           $num_val * $unit_to_factor{$old_unit} /
                                      $unit_to_factor{$new_unit};
   $new_unit = " $new_unit" unless $new_unit eq q(") || $new_unit eq '';
@@ -1162,7 +1283,7 @@ Roel van der Steen, roel-perl@st2x.net
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by ITP
+Copyright 2004 by ITP and Roel van der Steen
 
 This program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.

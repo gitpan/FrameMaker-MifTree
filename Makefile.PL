@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.7 2004/07/22 11:30:24 roel Exp $
+# $Id: Makefile.PL,v 1.9 2004/11/11 08:59:20 roel Exp $
 
 use inc::Module::Install;
 
@@ -7,7 +7,7 @@ abstract        ('A MIF Parser');
 author          ('Roel van der Steen <roel-perl@st2x.net>');
 version_from    ('lib/FrameMaker/MifTree.pm');
 license         ('perl');
-requires        ('perl' => 5.006);
+requires        ('perl' => 5.008_001);
 requires        ('File::Temp');
 requires        ('IO::Scalar');
 requires        ('IO::Tokenized');

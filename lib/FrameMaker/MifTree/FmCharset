@@ -1,21 +1,23 @@
 package FrameMaker::MifTree;
-# $Id: FmCharset,v 1.2 2004/07/22 11:30:24 roel Exp $
+# $Id: FmCharset,v 1.4 2004/11/11 03:00:29 roel Exp $
+use 5.8.0;
 use strict;
 use warnings;
 use charnames ':full';
 
 %FrameMaker::MifTree::fmcharset = (
-  "\x04" => "\N{SOFT HYPHEN}",
-  "\x05" => "\N{HYPHENATION POINT}",
-  "\x08" => "\N{CHARACTER TABULATION}",
-  "\x09" => "\N{LINE TABULATION}",
+  "\x04" => "\N{SOFT HYPHEN}",          # <Char DiscHyphen>
+  "\x05" => "\N{ZERO WIDTH JOINER}",    # <Char NoHyphen>
+  "\x06" => "\N{HYPHEN}",               # <Char SoftHyphen>
+  "\x08" => "\N{CHARACTER TABULATION}", # <Char Tab>
+  "\x09" => "\N{NEXT LINE}",            # <Char HardReturn>
   "\x0a" => "\N{LINE FEED (LF)}",
-  "\x10" => "\N{FIGURE SPACE}",
-  "\x11" => "\N{NO-BREAK SPACE}",
-  "\x12" => "\N{THIN SPACE}",
-  "\x13" => "\N{EN SPACE}",
-  "\x14" => "\N{EM SPACE}",
-  "\x15" => "\N{NON-BREAKING HYPHEN}",
+  "\x10" => "\N{FIGURE SPACE}",         # <Char NumberSpace>
+  "\x11" => "\N{NO-BREAK SPACE}",       # <Char HardSpace>
+  "\x12" => "\N{THIN SPACE}",           # <Char ThinSpace>
+  "\x13" => "\N{EN SPACE}",             # <Char EnSpace>
+  "\x14" => "\N{EM SPACE}",             # <Char EmSpace>
+  "\x15" => "\N{NON-BREAKING HYPHEN}",  # <Char HardHyphen>
   "\x20" => "\N{SPACE}",
   "\x21" => "\N{EXCLAMATION MARK}",
   "\x22" => "\N{QUOTATION MARK}",
@@ -143,12 +145,12 @@ use charnames ':full';
   "\x9d" => "\N{LATIN SMALL LETTER U WITH GRAVE}",
   "\x9e" => "\N{LATIN SMALL LETTER U WITH CIRCUMFLEX}",
   "\x9f" => "\N{LATIN SMALL LETTER U WITH DIAERESIS}",
-  "\xa0" => "\N{DAGGER}",
+  "\xa0" => "\N{DAGGER}",               # <Char Dagger>
   "\xa1" => "\N{DEGREE SIGN}",
-  "\xa2" => "\N{CENT SIGN}",
-  "\xa3" => "\N{POUND SIGN}",
+  "\xa2" => "\N{CENT SIGN}",            # <Char Cent>
+  "\xa3" => "\N{POUND SIGN}",           # <Char Pound>
   "\xa4" => "\N{SECTION SIGN}",
-  "\xa5" => "\N{BULLET}",
+  "\xa5" => "\N{BULLET}",               # <Char Bullet>
   "\xa6" => "\N{PILCROW SIGN}",
   "\xa7" => "\N{LATIN SMALL LETTER SHARP S}",
   "\xa8" => "\N{REGISTERED SIGN}",
@@ -163,7 +165,7 @@ use charnames ':full';
   "\xb1" => "\N{PLUS-MINUS SIGN}",
   "\xb2" => "\N{LATIN SMALL LETTER ETH}",
   "\xb3" => "\N{LATIN CAPITAL LETTER S WITH CARON}",
-  "\xb4" => "\N{YEN SIGN}",
+  "\xb4" => "\N{YEN SIGN}",             # <Char Yen>
   "\xb5" => "\N{MICRO SIGN}",
   "\xb6" => "\N{SUPERSCRIPT ONE}",
   "\xb7" => "\N{SUPERSCRIPT TWO}",
@@ -191,8 +193,8 @@ use charnames ':full';
   "\xcd" => "\N{LATIN CAPITAL LETTER O WITH TILDE}",
   "\xce" => "\N{LATIN CAPITAL LIGATURE OE}",
   "\xcf" => "\N{LATIN SMALL LIGATURE OE}",
-  "\xd0" => "\N{EN DASH}",
-  "\xd1" => "\N{EM DASH}",
+  "\xd0" => "\N{EN DASH}",              # <Char EnDash>
+  "\xd1" => "\N{EM DASH}",              # <Char EmDash>
   "\xd2" => "\N{LEFT DOUBLE QUOTATION MARK}",
   "\xd3" => "\N{RIGHT DOUBLE QUOTATION MARK}",
   "\xd4" => "\N{LEFT SINGLE QUOTATION MARK}",
@@ -207,7 +209,7 @@ use charnames ':full';
   "\xdd" => "\N{SINGLE RIGHT-POINTING ANGLE QUOTATION MARK}",
   "\xde" => "\N{LATIN SMALL LIGATURE FI}",
   "\xdf" => "\N{LATIN SMALL LIGATURE FL}",
-  "\xe0" => "\N{DOUBLE DAGGER}",
+  "\xe0" => "\N{DOUBLE DAGGER}",        # <Char DoubleDagger>
   "\xe1" => "\N{MIDDLE DOT}",
   "\xe2" => "\N{SINGLE LOW-9 QUOTATION MARK}",
   "\xe3" => "\N{DOUBLE LOW-9 QUOTATION MARK}",
@@ -244,5 +246,27 @@ use charnames ':full';
 while (my ($k, $v) = each %FrameMaker::MifTree::fmcharset) {
   delete $FrameMaker::MifTree::fmcharset{$k} if $k eq $v;
 }
+
+%FrameMaker::MifTree::fmnamedchars = (
+  DiscHyphen   => '\\x04 ',
+  NoHyphen     => '\\x05 ',
+  SoftHyphen   => '\\x06 ',
+  Tab          => '\\x08 ',
+  HardReturn   => '\\x09 ',
+  HardReturn   => '\\x10 ',
+  HardSpace    => '\\x11 ',
+  ThinSpace    => '\\x12 ',
+  EnSpace      => '\\x13 ',
+  EmSpace      => '\\x14 ',
+  HardHyphen   => '\\x15 ',
+  Dagger       => '\\xa0 ',
+  Cent         => '\\xa2 ',
+  Pound        => '\\xa3 ',
+  Bullet       => '\\xa5 ',
+  Yen          => '\\xb4 ',
+  EnDash       => '\\xd0 ',
+  EmDash       => '\\xd1 ',
+  DoubleDagger => '\\xe0 ',
+);
 
 1;
