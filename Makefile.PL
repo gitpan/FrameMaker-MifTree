@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.5 2004/04/23 13:25:03 roel Exp $
+# $Id: Makefile.PL,v 1.7 2004/07/22 11:30:24 roel Exp $
 
 use inc::Module::Install;
 
@@ -14,5 +14,8 @@ requires        ('IO::Tokenized');
 requires        ('IO::Tokenized::File');
 #requires        ('IO::Tokenized::Scalar');
 requires        ('Tree::DAG_Node');
+
+include('ExtUtils::AutoInstall');
+auto_install();
 
 &WriteAll;

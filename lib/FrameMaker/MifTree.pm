@@ -1,5 +1,5 @@
 package FrameMaker::MifTree;
-# $Id: MifTree.pm,v 1.12 2004/05/09 19:39:12 roel Exp $
+# $Id: MifTree.pm,v 1.15 2004/07/22 11:30:24 roel Exp $
 use strict;
 use warnings;
 use warnings::register;
@@ -17,7 +17,7 @@ FrameMaker::MifTree - A MIF Parser
 
 =head1 VERSION
 
-This document describes version 0.071, released 9 May 2004.
+This document describes version 0.072, released 22 July 2004.
 
 =head1 SYNOPSIS
 
@@ -79,7 +79,7 @@ IO::Stringy (only IO::Scalar is needed)
 
 BEGIN {
   use Exporter ();
-  our $VERSION     = 0.071;
+  our $VERSION     = 0.072;
   our @ISA         = qw(Tree::DAG_Node Exporter);
   our @EXPORT      = qw(&quote &unquote &encode_path &decode_path &convert);
   our @EXPORT_OK   = ();
@@ -92,10 +92,12 @@ our (%mifnodes, %mifleaves, %attribute_types, %fmcharset);
 for my $do (qw(FrameMaker/MifTree/MifTreeTags FrameMaker/MifTree/FmCharset)) {
   do $do or croak $! || $@;
 }
-our $fm_to_unicode = sprintf 'use charnames q/:full/; $s =~ tr/%s/%s/', 
-                     join('', keys %fmcharset), join('', values %fmcharset);
-our $unicode_to_fm = sprintf 'use charnames q/:full/; $s =~ tr/%s/%s/', 
-                     join('', values %fmcharset), join('', keys %fmcharset);
+our $fm_to_unicode = '$s =~ tr/' .
+  join('', map { sprintf '\x%02x',   ord } keys   %fmcharset) . '/' .
+  join('', map { sprintf '\x{%04x}', ord } values %fmcharset) . '/';
+our $unicode_to_fm = '$s =~ tr/' .
+  join('', map { sprintf '\x{%04x}', ord } values %fmcharset) . '/' .
+  join('', map { sprintf '\x%02x',   ord } keys   %fmcharset) . '/';
 
 our $default_unit = '';
 our @parserdefinition = (
@@ -399,7 +401,7 @@ the first argument if you want to get just the Unicode string.)
 
 sub string { # read/write attribute-method
   my $this = shift;
-  $this->attributes(quote($_[0]), $_[1]) if defined $_[0];
+  $this->attributes( quote($_[0], $_[1]) ) if defined $_[0];
   return unquote($this->attributes, $_[1]);
 }
 
@@ -762,12 +764,12 @@ method returns with a FALSE result if the file cannot be written.
 
 sub dump_miffile {
   my ($obj, $filename) = @_[0, 1];
-  open(MIF, ">$filename") || return undef;
+  open(my $MIF, ">$filename") || return undef;
   $obj->walk_down({
     callback => sub {
       my $this = $_[0];
       if (defined $this->mother) { # don't print root element
-        if ((warnings::enabled || $^W)&& ! $this->name) {
+        if ((warnings::enabled || $^W) && ! $this->name) {
           warnings::warn 'Missing name on node ' . $this->address;
         }
         if ( ! $this->is_node && ! defined $this->attributes ) {
@@ -777,9 +779,9 @@ sub dump_miffile {
           $this->attributes('');
         }
         if ($this->name eq '_facet') {
-          print MIF $this->facet_data;
+          print $MIF $this->facet_data;
         } else {
-          print MIF
+          print $MIF
             ' ' x (scalar $this->ancestors - 1) .
             '<' . $this->name .
             ($this->name eq 'DocFileInfo' ? "\n"
@@ -794,11 +796,11 @@ sub dump_miffile {
       my $this = $_[0];
       if (defined $this->mother) { # don't print anything for root...
         if ($this->is_node) {      # ... or for leaves
-          print MIF ' ' x (scalar $this->ancestors - 1) .
+          print $MIF ' ' x (scalar $this->ancestors - 1) .
             '> # End of ' . $this->name . "\n";
         }
       } else {
-        print MIF "# End of MIFFile\n";
+        print $MIF "# End of MIFFile\n";
       }
     }
   });
@@ -938,7 +940,7 @@ Quotes a string with MIF style quotes, and escapes forbidden characters.
 Backslashes, backticks, single quotes, greater-than and tabs are escaped,
 non-ASCII values are written in their hexadecimal representation. So:
 
-  Some `symbols': > \ؿ!>
+Some `symbols': E<gt> \E<216>E<191>!>
 
 is written as
 
@@ -957,10 +959,14 @@ from Unicode to the FrameMaker character set.
 =cut
 
 sub quote {
-  my $s = shift;
+  my ($s, $use_unicode) = @_;
   return unless defined $s;
 
-  eval($unicode_to_fm) || warn $@ if $_[0];
+  if ($use_unicode) {
+    my $s_orig = $s;
+    eval($unicode_to_fm);
+    warnings::warn "Error in \"quote\" while converting $s_orig\n$@" if $@;
+  }
 
   $s =~ s/\\(?!x[a-f0-9]{2})/\\\\/g;   # single backslash to escaped backslash
                                        # except when followed by hex sequence
@@ -969,7 +975,7 @@ sub quote {
   $s =~ s/'/\\q/g;                     # single straight quote
   $s =~ s/>/\\>/g;                     # escape 'greater than'
   $s =~ s/\t/\\t/g;                    # tab character to backslash-'t'
-  $s =~ s/([\x81-\xff])/"\\x" . sprintf("%lx", ord $1) . " "/ge; # high chars
+  $s =~ s/([\x80-\xff])/"\\x" . sprintf("%lx", ord $1) . " "/ge; # high chars
 
   return "`$s'";
 }
@@ -980,12 +986,12 @@ The opposite action. Surrounding quotes are removed and all escaped sequences
 are transliterated into their original character.
 
 If the optional I<USE_UNICODE> argument is true, the string will be converted
-from Unicode to the FrameMaker character set.
+from the FrameMaker character set to Unicode.
 
 =cut
 
 sub unquote {
-  my $s = shift;
+  my ($s, $use_unicode) = @_;
   return unless defined $s;
 
   $s =~ s/^`// && $s =~ s/'$//;  # unquote
@@ -996,7 +1002,11 @@ sub unquote {
   $s =~ s/\\Q/`/g;               # backtick
   $s =~ s/\\\\/\\/g;             # backslash
 
-  eval($fm_to_unicode) || warn $@ if $_[0];
+  if ($use_unicode) {
+    my $s_orig = $s;
+    eval($fm_to_unicode);
+    warnings::warn "Error in \"unquote\" while converting $s_orig\n$@" if $@;
+  }
 
   return $s;
 }

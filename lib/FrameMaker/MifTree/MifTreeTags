@@ -1,4 +1,5 @@
-# $Id: MifTreeTags,v 1.7 2004/05/09 16:45:44 roel Exp $
+package FrameMaker::MifTree;
+# $Id: MifTreeTags,v 1.8 2004/07/22 11:30:24 roel Exp $
 ###############################################################
 #                                                             #
 #               valid tags for MIF version 7.00               #

@@ -1,4 +1,4 @@
-$Id: Changes,v 1.6 2004/05/09 19:39:12 roel Exp $
+$Id: Changes,v 1.8 2004/07/22 11:30:24 roel Exp $
 Revision history for Perl extension FrameMaker-MifTree.
 
 0.043 02 Mar 2004
@@ -16,3 +16,5 @@ Revision history for Perl extension FrameMaker-MifTree.
 0.071 9 May 2004
       - added FrameMaker character set <-> Unicode string 
         conversion
+0.072 22 July 2004
+      - bugfix release
