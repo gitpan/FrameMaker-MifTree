@@ -1,4 +1,4 @@
-# $Id: MifTreeTags,v 1.4 2004/03/22 13:50:23 roel Exp $
+# $Id: MifTreeTags,v 1.5 2004/03/28 19:55:33 roel Exp $
 ###############################################################
 #                                                             #
 #               valid tags for MIF version 7.00               #
@@ -1826,10 +1826,10 @@
   FColor                                         => 'tagstring',
   FCombinedFontName                              => 'string',
   FDAX                                           => 'dimension',
-  FDW                                            => 'dimension',
+  FDW                                            => 'percentage',
   FDWChange                                      => 'dimension',
-  FDX                                            => 'dimension',
-  FDY                                            => 'dimension',
+  FDX                                            => 'percentage',
+  FDY                                            => 'percentage',
   FDoubleUnderline                               => 'boolean',
   FEncoding                                      => 'string',
   FFamily                                        => 'string',
@@ -2200,7 +2200,7 @@
 );
 
 # Attribute types
-my $num = '-?\d*\.?\d+';
+my $num = '-?\d+\.?\d*';
 my $dim = $num .
 '\s*(?:pt|point|"|in|mm|millimeter|cm|centimeter|pc|pica|dd|didot|cc|cicero)?';
 %attribute_types = (

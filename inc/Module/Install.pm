@@ -1,6 +1,6 @@
 #line 1 "inc/Module/Install.pm - /usr/lib/perl5/site_perl/5.8.1/Module/Install.pm"
-# $File: //depot/cpan/Module-Install/lib/Module/Install.pm $ $Author: autrijus $
-# $Revision: #66 $ $Change: 1847 $ $DateTime: 2003/12/31 23:14:54 $ vim: expandtab shiftwidth=4
+# $File: //depot/cpan/Module-Install/lib/Module/Install.pm $ $Author: roel $
+# $Revision: 1.1.1.1 $ $Change: 1847 $ $DateTime: 2003/12/31 23:14:54 $ vim: expandtab shiftwidth=4
 
 package Module::Install;
 $VERSION = '0.32';

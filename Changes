@@ -1,4 +1,4 @@
-$Id: Changes,v 1.2 2004/03/05 12:00:27 roel Exp $
+$Id: Changes,v 1.4 2004/04/15 14:32:46 roel Exp $
 Revision history for Perl extension FrameMaker-MifTree.
 
 0.043 02 Mar 2004
@@ -11,3 +11,5 @@ Revision history for Perl extension FrameMaker-MifTree.
 0.05  24 Mar 2004
       - changed MifTreeTags again: added tags for backward
         compatibility
+0.06  15 Apr 2004
+      - small bugfixes

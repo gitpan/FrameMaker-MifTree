@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 01-use.t,v 1.1 2004/03/07 16:35:02 roel Exp $
+# $Id: 01-use.t,v 1.2 2004/03/24 09:16:49 roel Exp $
 use strict;
 use warnings;
 # Before `make install' is performed this script should be runnable with
