@@ -16,7 +16,7 @@ FrameMaker::MifTree - A MIF Parser
 
 =head1 VERSION
 
-This document describes version 0.06, released 24 March 2004.
+This document describes version 0.07, released 9 May 2004.
 
 =head1 SYNOPSIS
 
@@ -78,7 +78,7 @@ IO::Stringy (only IO::Scalar is needed)
 
 BEGIN {
   use Exporter ();
-  our $VERSION     = 0.06;
+  our $VERSION     = 0.07;
   our @ISA         = qw(Tree::DAG_Node Exporter);
   our @EXPORT      = qw(&quote &unquote &encode_path &decode_path &convert);
   our @EXPORT_OK   = ();
@@ -86,11 +86,16 @@ BEGIN {
 }
 our @EXPORT_OK;
 
-our (%mifnodes, %mifleaves, %attribute_types);
+our (%mifnodes, %mifleaves, %attribute_types, %fmcharset);
 
-do('FrameMaker/MifTree/MifTreeTags')
-|| croak "Could not execute \"FrameMaker/MifTree/MifTreeTags\" " .
-         '(maybe due to syntax error?)';
+for my $do (qw(FrameMaker/MifTree/MifTreeTags FrameMaker/MifTree/FmCharset)) {
+  do $do or croak $! || $@;
+}
+our $fm_to_unicode = sprintf 'use charnames q/:full/; $s =~ tr/%s/%s/', 
+                     join('', keys %fmcharset), join('', values %fmcharset);
+our $unicode_to_fm = sprintf 'use charnames q/:full/; $s =~ tr/%s/%s/', 
+                     join('', values %fmcharset), join('', keys %fmcharset);
+
 our $default_unit = '';
 our @parserdefinition = (
   [ COMMENT => qr/#.*/ ],
@@ -273,7 +278,7 @@ sub add_facet {
 Find all daughters that listen to the name NAMESTRING, either walking the tree
 (RECURSE is true), or only on the mother's daughters (RECURSE false or
 omitted (the latter throws a warning that it will not recurse -- I've spent too
-many time debugging code where I forgot to add the RCURSE parameter). Returns
+many time debugging code where I forgot to add the RECURSE parameter). Returns
 the first object in scalar context, or a list of all found objects in list
 context.
 
@@ -355,7 +360,7 @@ sub daughter_by_name_and_attr { # alias
   $it->daughters_by_name_and_attr(@them);
 }
 
-=item C<$OBJ-E<gt>find_string(QUOTED_REGEX)>
+=item C<$OBJ-E<gt>find_string(QUOTED_REGEX, [USE_UNICODE])>
 
 Returns a list of all strings that match QUOTED_REGEX under $OBJ. When called
 in scalar context, only the first match is returned.
@@ -363,11 +368,12 @@ in scalar context, only the first match is returned.
 =cut
 
 sub find_string {
-  my ($obj, $re) = @_[0 .. 1];
+  my ($obj, $re, $use_unicode) = @_[0 .. 2];
   my $wantsarray = wantarray;
   my @found = ();
   for my $str_obj ($obj->daughters_by_name('String', 1)) {
-    push @found, $str_obj->string if $str_obj->string =~ /$re/;
+    my $string = $str_obj->string(undef, $use_unicode);
+    push @found, $string if $string =~ /$re/;
     last if @found && ! $wantsarray;
   }
   return $wantsarray ? @found : $found[0];
@@ -379,17 +385,21 @@ sub find_string {
 
 =over 4
 
-=item C<$OBJ-E<gt>string(STRING)>
+=item C<$OBJ-E<gt>string(STRING, [USE_UNICODE])>
 
 Reads or sets the object's attribute as a MIF string. The method just calls
 C<quote> and C<unquote> as appropriate.
+
+If the optional I<USE_UNICODE> argument is true, the string will be converted
+from Unicode to the FrameMaker character set first. (You must pass I<undef> as
+the first argument if you want to get just the Unicode string.)
 
 =cut
 
 sub string { # read/write attribute-method
   my $this = shift;
-  $this->attributes(quote($_[0])) if (@_);
-  return unquote($this->attributes);
+  $this->attributes(quote($_[0]), $_[1]) if defined $_[0];
+  return unquote($this->attributes, $_[1]);
 }
 
 =item C<$OBJ-E<gt>pathname(PATHSTRING)>
@@ -921,7 +931,7 @@ All these functions are exported by default.
 
 =over 4
 
-=item quote(STRING)
+=item quote(STRING, [USE_UNICODE])
 
 Quotes a string with MIF style quotes, and escapes forbidden characters.
 Backslashes, backticks, single quotes, greater-than and tabs are escaped,
@@ -940,11 +950,16 @@ you want a literal \x00 string, precede it with an extra backslash.
   print quote("\\x09 ");    # prints `\\x09 '; this will show up literally
                             # as \x09 in FrameMaker
 
+If the optional I<USE_UNICODE> argument is true, the string will be converted
+from Unicode to the FrameMaker character set.
+
 =cut
 
 sub quote {
   my $s = shift;
   return unless defined $s;
+
+  eval($unicode_to_fm) || warn $@ if $_[0];
 
   $s =~ s/\\(?!x[a-f0-9]{2})/\\\\/g;   # single backslash to escaped backslash
                                        # except when followed by hex sequence
@@ -958,10 +973,13 @@ sub quote {
   return "`$s'";
 }
 
-=item unquote(STRING)
+=item unquote(STRING, [USE_UNICODE])
 
 The opposite action. Surrounding quotes are removed and all escaped sequences
 are transliterated into their original character.
+
+If the optional I<USE_UNICODE> argument is true, the string will be converted
+from Unicode to the FrameMaker character set.
 
 =cut
 
@@ -976,6 +994,8 @@ sub unquote {
   $s =~ s/\\q/'/g;               # single quote
   $s =~ s/\\Q/`/g;               # backtick
   $s =~ s/\\\\/\\/g;             # backslash
+
+  eval($fm_to_unicode) || warn $@ if $_[0];
 
   return $s;
 }
@@ -1012,7 +1032,7 @@ sub encode_path {
   return "`$s'";
 }
 
-=item C<decode_path(STRING, ROOTPATH)>
+=item C<decode_path(STRING, [ROOTPATH])>
 
 Usage:
 
@@ -1121,7 +1141,7 @@ Adobe's I<MIF_Reference.pdf>, included in FrameMaker's online documentation.
 
 =item *
 
-http://www.miffy.com, as this module was formerly called Miffy.pm
+L<http://www.miffy.com>, as this module was formerly called Miffy.pm
 
 =back
 

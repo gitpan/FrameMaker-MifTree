@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.4 2004/03/11 16:17:14 roel Exp $
+# $Id: Makefile.PL,v 1.5 2004/04/23 13:25:03 roel Exp $
 
 use inc::Module::Install;
 
@@ -9,6 +9,7 @@ version_from    ('lib/FrameMaker/MifTree.pm');
 license         ('perl');
 requires        ('perl' => 5.006);
 requires        ('File::Temp');
+requires        ('IO::Scalar');
 requires        ('IO::Tokenized');
 requires        ('IO::Tokenized::File');
 #requires        ('IO::Tokenized::Scalar');

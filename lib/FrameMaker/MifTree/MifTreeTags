@@ -1,14 +1,16 @@
-# $Id: MifTreeTags,v 1.5 2004/03/28 19:55:33 roel Exp $
+# $Id: MifTreeTags,v 1.7 2004/05/09 16:45:44 roel Exp $
 ###############################################################
 #                                                             #
 #               valid tags for MIF version 7.00               #
 #                 part of package MifTree.pm                  #
 #                                                             #
 ############ possibly incomplete and/or incorrect #############
-
+use strict;
+use warnings;
+no warnings 'once';
 
 # %mifnodes defines all the nodes and their possible daughters
-%mifnodes = (
+%FrameMaker::MifTree::mifnodes = (
   ""                      => [qw(
                                MIFFile
                                MIFEncoding
@@ -554,6 +556,7 @@
                                ETextSnippet
                                SpecialCase
                                Unique
+                               UserString
                              )],
   ElementBegin            => [qw(
                                AttributeDisplay
@@ -1490,7 +1493,7 @@
 # %mifleaves lists the valid leaves
 # a leaf (in MIF context) is defined as an object that
 # can't have daughters, but can have attributes
-%mifleaves = (
+%FrameMaker::MifTree::mifleaves = (
   AFrame                                         => 'ID',
   ATbl                                           => 'ID',
   AcrobatElement                                 => 'data',
@@ -2203,7 +2206,7 @@
 my $num = '-?\d+\.?\d*';
 my $dim = $num .
 '\s*(?:pt|point|"|in|mm|millimeter|cm|centimeter|pc|pica|dd|didot|cc|cicero)?';
-%attribute_types = (
+%FrameMaker::MifTree::attribute_types = (
   '0xnnn'              => qr/^0x[0-9a-f]{3}\s*$/i,
   ID                   => qr/^\d+\s*$/,
   L_T_R_B              => qr/^$dim\s+$dim\s+$dim\s+$dim\s*$/o,
@@ -2227,10 +2230,11 @@ my $dim = $num .
   tagstring            => qr/^`[^']*'\s*$/,
 );
 
+1;
 
 =unused
 
-%attribute_types = (
+%FrameMaker::MifTree::attribute_types = (
   "0xnnn => '',
   ID => '',
   L_T_R_B => '',
