@@ -1,5 +1,5 @@
 package FrameMaker::MifTree;
-# $Id: MifTree.pm,v 1.19 2004/11/11 03:00:29 roel Exp $
+# $Id: MifTree.pm,v 1.20 2004/11/12 00:57:12 roel Exp $
 use 5.008_001;              # minimum version for Unicode support
 use strict;
 use warnings;
@@ -18,7 +18,7 @@ FrameMaker::MifTree - A MIF Parser
 
 =head1 VERSION
 
-This document describes version 0.073, released 2 November 2004.
+This document describes version 0.074, released 2 November 2004.
 
 =head1 SYNOPSIS
 
@@ -80,7 +80,7 @@ IO::Stringy (only IO::Scalar is needed)
 
 BEGIN {
   use Exporter ();
-  our $VERSION     = 0.073;
+  our $VERSION     = 0.074;
   our @ISA         = qw(Tree::DAG_Node Exporter);
   our @EXPORT      = qw(&quote &unquote &encode_path &decode_path &convert);
   our @EXPORT_OK   = qw(%fmcharset %fmnamedchars);
@@ -398,6 +398,7 @@ sub find_string {
 #
 #=cut
 
+#TODO I intend to move these two methods to a separate class later
 sub charleaves_to_strings {
   my $obj = $_[0];
   local $use_unicode = 1;
@@ -407,9 +408,15 @@ sub charleaves_to_strings {
   }
 }
 
+#=item C<$OBJ-E<gt>charleaves_to_strings()>
+#
+#TODO No doc written yet.
+#
+#=cut
+
 sub fold_strings {
   my $obj = $_[0];
-  local $use_unicode = 1;
+  local $use_unicode = 0;
   for my $para ($obj->daughters_by_name('Para', recurse => 1)) {
 
     $para->charleaves_to_strings;
@@ -440,8 +447,8 @@ sub fold_strings {
         } elsif ( ! defined $first_str ) {
           $first_str = $daughter;
         } else {
-          my $str = $daughter->string;
-          $first_str->string($first_str->string . $str) unless $str eq "\x06";
+          (my $str = $daughter->string) =~ tr/\x06//d;
+          $first_str->string($first_str->string . $str);
           $paraline->remove_daughter($daughter);
         }
       }
@@ -1091,7 +1098,7 @@ sub quote {
   $s =~ s/\t/\\t/g;                    # tab character to backslash-'t'
 
   # control and high chars
-  $s =~ s/([\x00-\x1a\x80-\xff])/'\x' . sprintf('%lx', ord $1) . ' '/ge;
+  $s =~ s/([\x00-\x1a\x80-\xff])/'\x' . sprintf('%02x ', ord $1)/ge;
 
   return "`$s'";
 }

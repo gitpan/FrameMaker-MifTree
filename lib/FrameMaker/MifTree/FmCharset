@@ -1,5 +1,5 @@
 package FrameMaker::MifTree;
-# $Id: FmCharset,v 1.4 2004/11/11 03:00:29 roel Exp $
+# $Id: FmCharset,v 1.5 2004/11/12 00:57:12 roel Exp $
 use 5.8.0;
 use strict;
 use warnings;
@@ -253,7 +253,7 @@ while (my ($k, $v) = each %FrameMaker::MifTree::fmcharset) {
   SoftHyphen   => '\\x06 ',
   Tab          => '\\x08 ',
   HardReturn   => '\\x09 ',
-  HardReturn   => '\\x10 ',
+  NumberSpace  => '\\x10 ',
   HardSpace    => '\\x11 ',
   ThinSpace    => '\\x12 ',
   EnSpace      => '\\x13 ',
