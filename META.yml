@@ -1,5 +1,5 @@
 name: FrameMaker-MifTree
-version: 0.06
+version: 0.071
 abstract: A MIF Parser
 author: Roel van der Steen <roel-perl@st2x.net>
 license: perl
@@ -7,6 +7,7 @@ distribution_type: module
 requires:
   perl: 5.6.0
   File::Temp: 0
+  IO::Scalar: 0
   IO::Tokenized: 0
   IO::Tokenized::File: 0
   Tree::DAG_Node: 0

@@ -1,4 +1,5 @@
 package FrameMaker::MifTree;
+# $Id: MifTree.pm,v 1.12 2004/05/09 19:39:12 roel Exp $
 use strict;
 use warnings;
 use warnings::register;
@@ -16,7 +17,7 @@ FrameMaker::MifTree - A MIF Parser
 
 =head1 VERSION
 
-This document describes version 0.07, released 9 May 2004.
+This document describes version 0.071, released 9 May 2004.
 
 =head1 SYNOPSIS
 
@@ -78,7 +79,7 @@ IO::Stringy (only IO::Scalar is needed)
 
 BEGIN {
   use Exporter ();
-  our $VERSION     = 0.07;
+  our $VERSION     = 0.071;
   our @ISA         = qw(Tree::DAG_Node Exporter);
   our @EXPORT      = qw(&quote &unquote &encode_path &decode_path &convert);
   our @EXPORT_OK   = ();
