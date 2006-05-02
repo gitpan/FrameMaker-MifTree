@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: 02-isa.t,v 1.3 2004/05/10 10:13:45 roel Exp $
+# $Id: 02-isa.t 1 2005-02-10 21:44:54Z roel $
 use strict;
 use warnings;
 use Test::More 'no_plan';

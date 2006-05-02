@@ -1,6 +1,6 @@
 package FrameMaker::MifTree;
-# $Id: FmCharset,v 1.5 2004/11/12 00:57:12 roel Exp $
-use 5.8.0;
+# $Id: FmCharset,v 1.6 2004/11/19 22:33:40 roel Exp $
+use 5.008_001;
 use strict;
 use warnings;
 use charnames ':full';

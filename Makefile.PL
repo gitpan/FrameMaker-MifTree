@@ -13,6 +13,7 @@ requires        ('IO::Scalar');
 requires        ('IO::Tokenized');
 requires        ('IO::Tokenized::File');
 #requires        ('IO::Tokenized::Scalar');
+requires        ('Test::More');
 requires        ('Tree::DAG_Node');
 
 include('ExtUtils::AutoInstall');

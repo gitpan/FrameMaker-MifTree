@@ -1,5 +1,5 @@
 package FrameMaker::MifTree;
-# $Id: MifTree.pm,v 1.20 2004/11/12 00:57:12 roel Exp $
+# $Id: MifTree.pm 2 2006-05-02 11:15:26Z roel $
 use 5.008_001;              # minimum version for Unicode support
 use strict;
 use warnings;
@@ -18,7 +18,7 @@ FrameMaker::MifTree - A MIF Parser
 
 =head1 VERSION
 
-This document describes version 0.074, released 2 November 2004.
+This document describes version 0.075, released 2 May 2006.
 
 =head1 SYNOPSIS
 
@@ -80,7 +80,7 @@ IO::Stringy (only IO::Scalar is needed)
 
 BEGIN {
   use Exporter ();
-  our $VERSION     = 0.074;
+  our $VERSION     = 0.075;
   our @ISA         = qw(Tree::DAG_Node Exporter);
   our @EXPORT      = qw(&quote &unquote &encode_path &decode_path &convert);
   our @EXPORT_OK   = qw(%fmcharset %fmnamedchars);
@@ -279,7 +279,7 @@ sub add_facet {
 
 =over 4
 
-=item C<$OBJ-E<gt>daughters_by_name(NAMESTRING, recurse => BOOLEAN)>
+=item C<$OBJ-E<gt>daughters_by_name(NAMESTRING, recurse =E<gt> BOOLEAN)>
 
 Find all daughters that listen to the name NAMESTRING, either walking the tree
 ("recurse" is true), or only on the mother's daughters ("recurse" false or
@@ -316,13 +316,19 @@ sub daughters_by_name {
   return $wantsarray ? @found : $found[0];
 }
 
+=item C<$OBJ-E<gt>daughter_by_name(NAMESTRING, recurse =E<gt> BOOLEAN)>
+
+Alias for "daughters_by_name".
+
+=cut
+
 sub daughter_by_name { # alias
   my ($it, @them) = @_;
   $it->daughters_by_name(@them);
 }
 
-=item C<$OBJ-E<gt>daughters_by_name_and_attr(NAMESTRING, ATTRIBUTE, recurse =>
-BOOLEAN)>
+=item C<$OBJ-E<gt>daughters_by_name_and_attr(NAMESTRING, ATTRIBUTE, recurse
+=E<gt> BOOLEAN)>
 
 Find all daughters that listen to the name NAMESTRING and have the raw
 attribute ATTRIBUTE, either walking the tree ("recurse" is true), or only on
@@ -364,6 +370,13 @@ sub daughters_by_name_and_attr {
   return $wantsarray ? @found : $found[0];
 }
 
+=item C<$OBJ-E<gt>daughter_by_name_and_attr(NAMESTRING, ATTRIBUTE, recurse
+=E<gt> BOOLEAN)>
+
+Alias for "daughters_by_name_and_attr".
+
+=cut
+
 sub daughter_by_name_and_attr { # alias
   my ($it, @them) = @_;
   $it->daughters_by_name_and_attr(@them);
@@ -390,29 +403,37 @@ sub find_string {
   return $wantsarray ? @found : $found[0];
 }
 
-#=item C<$OBJ-E<gt>charleaves_to_strings()>
-#
-#Changes all the leaves with the name "Char" below $OBJ to their equivalent
-#String leaves. This has no effect on the content of the MIF file; it just makes
-#the file less ambiguous. Returns undef.
-#
-#=cut
+=item C<$OBJ-E<gt>charleaves_to_strings()>
+
+Changes all the leaves with the name "Char" below $OBJ to their equivalent
+String leaves. This has no effect on the content of the MIF file; it just makes
+the file less ambiguous. Returns undef.
+
+=cut
 
 #TODO I intend to move these two methods to a separate class later
 sub charleaves_to_strings {
   my $obj = $_[0];
   local $use_unicode = 1;
   for ($obj->daughters_by_name('Char', recurse => 1)) {
+    my $new_att_string = $fmnamedchars{$_->attribute};
     $_->name('String');
-    $_->string($fmnamedchars{$_->attribute});
+    $_->string($new_att_string);
   }
 }
 
-#=item C<$OBJ-E<gt>charleaves_to_strings()>
-#
-#TODO No doc written yet.
-#
-#=cut
+=item C<$OBJ-E<gt>fold_strings()>
+
+This method folds all subsequent paragraph lines in a paragraph into one
+paragraph line. If you want to do operations on text, you should first use this
+method on (part of) the tree. In MIF, the flow of text over the lines is
+maintained, but since this information is not used while FrameMaker parses the
+MIF file, it is safe to remove this information. Returns undef.
+
+All "Char" leaves except a "HardReturn" are transformed to their string
+equivalents. A "HardReturn" character forces a new paragraph line.
+
+=cut
 
 sub fold_strings {
   my $obj = $_[0];
@@ -428,13 +449,14 @@ sub fold_strings {
       } elsif ( ! defined $first_paraline ) {
           $first_paraline = $daughter;
       } else {
-        $first_paraline->add_daughters(
-          grep {$_->name ne 'TextRectID'} $daughter->daughters
-        );
-        $para->remove_daughter($daughter);
-        my @str_o = $first_paraline->daughters_by_name('String', recurse => 0);
-        if (@str_o) {
-          $first_paraline = undef if $str_o[-1]->string =~ /\x09$/;
+        my @strobj = $first_paraline->daughters_by_name('String', recurse => 0);
+        if (@strobj && $strobj[-1]->string =~ /\x09$/) { # character HardReturn
+          $first_paraline = $daughter;                   # forces new ParaLine
+        } else {
+          $first_paraline->add_daughters(
+            grep {$_->name ne 'TextRectID'} $daughter->daughters
+          );
+          $para->remove_daughter($daughter);
         }
       }
     }
@@ -784,8 +806,6 @@ sub get_attribute_error {
   return $errVal;
 }
 
-=cut
-
 =item C<$OBJ-E<gt>validate(FROMROOT)>
 
 Not yet implemented.
@@ -1095,7 +1115,6 @@ sub quote {
   $s =~ s/`/\\Q/g;                     # backtick
   $s =~ s/'/\\q/g;                     # single straight quote
   $s =~ s/>/\\>/g;                     # escape 'greater than'
-  $s =~ s/\t/\\t/g;                    # tab character to backslash-'t'
 
   # control and high chars
   $s =~ s/([\x00-\x1a\x80-\xff])/'\x' . sprintf('%02x ', ord $1)/ge;
@@ -1124,7 +1143,6 @@ sub unquote {
 
   $s =~ s/^`// && $s =~ s/'$//;  # unquote
   $s =~ s/\\x([a-f0-9]{1,2}) ?/chr hex $1/ge; # escaped non-ASCII chars
-  $s =~ s/\\t/\t/g;              # tab character
   $s =~ s/\\>/>/g;               # greater than
   $s =~ s/\\q/'/g;               # single quote
   $s =~ s/\\Q/`/g;               # backtick

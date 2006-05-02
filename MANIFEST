@@ -1,6 +1,7 @@
 Build.PL
 Changes
 inc/ExtUtils/AutoInstall.pm
+inc/Module/AutoInstall.pm
 inc/Module/Install.pm
 inc/Module/Install/AutoInstall.pm
 inc/Module/Install/Base.pm
@@ -22,3 +23,6 @@ META.yml
 README
 t/01-use.t
 t/02-isa.t
+t/03-fold.t
+t/04-pod.t
+t/05-pod-coverage.t
